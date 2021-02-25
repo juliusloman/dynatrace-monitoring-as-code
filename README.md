@@ -11,10 +11,16 @@ This tool automates deployment of Dynatrace Monitoring Configuration to one or m
 and [Configuration Structure](#configuration-structure)
 
 - [Dynatrace Monitoring as Code](#dynatrace-monitoring-as-code)
-  - [Using Monitoring as Code Tool](#using-monitoring-as-code-tool)
     - [Install Monaco](#install-monaco)
+      - [On Mac or Linux systems perform the following](#on-mac-or-linux-systems-perform-the-following)
+      - [On Windows](#on-windows)
     - [Commands (CLI)](#commands-cli)
       - [Dry Run (Validating Configuration)](#dry-run-validating-configuration)
+      - [Experimental new CLI](#experimental-new-cli)
+        - [Deploy](#deploy)
+        - [Download](#download)
+      - [Misc](#misc)
+        - [Logging all requests send to dynatrace](#logging-all-requests-send-to-dynatrace)
     - [Deploying Configuration to Dynatrace](#deploying-configuration-to-dynatrace)
       - [Running The Tool](#running-the-tool)
       - [Environments file](#environments-file)
@@ -25,7 +31,7 @@ and [Configuration Structure](#configuration-structure)
         - [Dashboard JSON](#dashboard-json)
         - [Calculated log metrics JSON](#calculated-log-metrics-json)
         - [Conditional naming JSON](#conditional-naming-json)
-    - [Configuration Types / APIs](#configuration-types-apis)
+    - [Configuration Types / APIs](#configuration-types--apis)
       - [Supported Configuration Types and Token Permissions](#supported-configuration-types-and-token-permissions)
     - [Configuration YAML Structure](#configuration-yaml-structure)
     - [Skip configuration deployment](#skip-configuration-deployment)
@@ -80,7 +86,7 @@ If nothing is supplied the current working dir is used.
 Running monaco is done with required and non-required options and positional arguments:
 
 ```
-monaco --environments <path-to-environment-yaml-file> [--specific-environment <environment-name>] [--project <project-folder>] [--dry-run] [--verbose] [projects-root-folder]
+monaco --environments <path-to-environment-yaml-file> [--specific-environment <environment-name>] [--project <project-folder>] [--dry-run] [--verbose] [--continue-on-error] [projects-root-folder]
 ```
 
 For deploying a specific project inside a root config folder, the tool could be run as:
@@ -89,11 +95,17 @@ For deploying a specific project inside a root config folder, the tool could be 
 
 In this case the **project** is within the **projects-root-folder**.
 
+> Note that `[projects-root-folder]` needs to be a relative path from the directory you run monaco in.
+
 For validating your complete configuration in the current folder, the tool could be run as:
 ```monaco --dry-run --environments <path-to-environment-yaml-file>```
 
 For deploying all configurations to a single environment and get verbose output, the tool could be run as:
 ```monaco -v -e <path-to-environment-yaml-file> -se <name of environment>```
+
+If, during deployment, `monaco` detects an error (configuration upload fails), it automatically stops deployment of affected environment. In case you want 
+`monaco` to ignore errors and try to upload other configurations, you can provide `--continue-on-error` flag:
+```monaco deploy --project <project-folder> --environments <path-to-environment-yaml-file> continue-on-error [projects-root-folder]```
 
 Multiple projects can be specified as well:
 
@@ -109,26 +121,14 @@ monaco --version
 The supported flags are described below:
 
 ```
-  -d    Set dry-run flag to just validate configurations instead of deploying. (shorthand)
-  -dry-run
-        Set dry-run flag to just validate configurations instead of deploying.
-  -p string
-        Project configuration to deploy. Also deploys any dependent configuration. (shorthand)
-  -project string
-        Project configuration to deploy. Also deploys any dependent configuration.
-  -specific-environment string
-        Specifc environment (from list) to deploy to.
-  -se string
-        Specifc environment (from list) to deploy to. (shorthand)
-  -e string
-        Mandatory yaml file containing environments to deploy to. (shorthand)
-  -environments string
-        Mandatory yaml file containing environments to deploy to.
-  -v    Set verbose flag to enable debug logging. (shorthand)
-  -verbose
-        Set verbose flag to enable debug logging.
-  -version
-        Prints the current version of the tool and exits the program
+   --verbose, -v                             (default: false)
+   --environments value, -e value            Yaml file containing environments to deploy to
+   --specific-environment value, --se value  Specific environment (from list) to deploy to (default: none)
+   --project value, -p value                 Project configuration to deploy (also deploys any dependent configurations) (default: none)
+   --dry-run, -d                             Switches to just validation instead of actual deployment (default: false)
+   --continue-on-error, -c                   Proceed deployment even if config upload fails (default: false)
+   --help, -h                                show help (default: false)
+   --version                                 print the version (default: false)
 ```
 
 #### Dry Run (Validating Configuration)
@@ -146,6 +146,62 @@ To validate the configuration execute `monaco -dry-run` on a yaml file as show h
 ...
 2020/06/16 16:22:30 Config validation SUCCESSFUL
 ```
+
+#### Experimental new CLI
+Starting with version 1.2.0 a new experimental CLI is available. The plan is that it 
+will gradually become the new default in the next few releases. 
+
+To activate the new experimental cli simply set an the env variable `NEW_CLI` to 1. 
+
+E.g.
+
+```sh
+NEW_CLI=1 monaco 
+```
+
+By running the above example you will notice that instead of being flag based, the 
+new cli is based around commands. 
+
+As of right now the following commands are available:
+* deploy
+* download
+
+##### Deploy
+This command is basically doing what the old tool did. It is used to deploy a specified
+config to a dynatrace environment. The flags to things like the environments files
+are mostly the same. 
+
+##### Download
+This feature allows you to download the configuration from a Dynatrace
+tenant as Monaco files. You can use this feature to avoid starting from
+scratch when using Monaco. 
+
+For more information on this feature, see [pkg/download/README.md](./pkg/download/README.md).
+
+#### Misc
+<a id="cli-misc"/>
+
+##### Logging all requests/response send to dynatrace
+<a id="cli-misc-log-requests">
+
+Sometimes it is useful for debugging to see http traffic between monaco and the dynatrace api.
+This is possible by specifying a log file via the `MONACO_REQUEST_LOG` and `MONACO_RESPONSE_LOG`
+env variables.
+
+The specified file can either be relative, then it will be located relative form the current 
+working dir, or absolute. 
+
+**NOTE:** If the file already exists, it will get **truncated**!
+
+Simply set the environment variable and monaco will start writing all send requests to 
+the file like:
+
+```sh
+$ MONACO_REQUEST_LOG=request.log MONACO_RESPONSE_LOG=response.log monaco -e environment project
+```
+
+As of right now, the content of multipart post requests is not logged. This is a known 
+limitation. 
 
 ### Deploying Configuration to Dynatrace
 
@@ -376,27 +432,40 @@ These are the supported configuration types, their API endpoints and the token p
 | alerting-profile                | _/api/config/v1/alertingProfiles_               | `Read Configuration` & `Write Configuration`                                                                        |
 | anomaly-detection-metrics       | _/api/config/v1/anomalyDetection/metricEvents_  | `Read Configuration` & `Write Configuration`                                                                        |
 | app-detection-rule              | _/api/config/v1/applicationDetectionRules_      | `Read Configuration` & `Write Configuration`                                                                        |
-| application                     | _/api/config/v1/applications/web_               | `Read Configuration` & `Write Configuration`                                                                        |
+| application **deprecated in 2.0.0!**| _/api/config/v1/applications/web_           | `Read Configuration` & `Write Configuration`                                                                        |
+| application-web **replaces application**| _/api/config/v1/applications/web_       | `Read Configuration` & `Write Configuration`                                                                        |
+| application-mobile              | _/api/config/v1/applications/mobile_            | `Read Configuration` & `Write Configuration`                                                                        |
 | auto-tag                        | _/api/config/v1/autoTags_                       | `Read Configuration` & `Write Configuration`                                                                        |
 | aws-credentials                 | _/api/config/v1/aws/credentials_                | `Read Configuration` & `Write Configuration`                                                                        |
+| azure-credentials               | _/api/config/v1/azure/credentials_              | `Read Configuration` & `Write Configuration`                                                                        |
 | calculated-metrics-log          | _/api/config/v1/calculatedMetrics/log_          | `Read Configuration` & `Write Configuration`                                                                        |
 | calculated-metrics-service      | _/api/config/v1/calculatedMetrics/service_      | `Read Configuration` & `Write Configuration`                                                                        |
 | conditional-naming-host         | _/api/config/v1/conditionalNaming/host_         | `Read Configuration` & `Write Configuration`                                                                        |
 | conditional-naming-processgroup | _/api/config/v1/conditionalNaming/processGroup_ | `Read Configuration` & `Write Configuration`                                                                        |
 | conditional-naming-service      | _/api/config/v1/conditionalNaming/service_      | `Read Configuration` & `Write Configuration`                                                                        |
+| credential-vault                | _/api/config/v1/credentials_                    | `Read Credential Vault Entries` & `Write Credential Vault Entries`                                                  |
 | custom-service-java             | _/api/config/v1/service/customServices/java_    | `Read Configuration` & `Write Configuration`                                                                        |
+| custom-service-dotnet           | _/api/config/v1/service/customServices/dotnet_  | `Read Configuration` & `Write Configuration`                                                                        |
+| custom-service-go               | _/api/config/v1/service/customServices/go_      | `Read Configuration` & `Write Configuration`                                                                        |
+| custom-service-nodejs           | _/api/config/v1/service/customServices/nodejs_  | `Read Configuration` & `Write Configuration`                                                                        |
+| custom-service-php              | _/api/config/v1/service/customServices/php_     | `Read Configuration` & `Write Configuration`                                                                        |
 | dashboard                       | _/api/config/v1/dashboards_                     | `Read Configuration` & `Write Configuration`                                                                        |
 | extension                       | _/api/config/v1/extensions_                     | `Read Configuration` & `Write Configuration`                                                                        |
+| kubernetes-credentials          | _/api/config/v1/kubernetes/credentials_         | `Read Configuration` & `Write Configuration`                                                                        |
 | maintenance-window              | _/api/config/v1/maintenanceWindows_             | `Deprecated: Configure maintenance windows`                                                                         |
 | management-zone                 | _/api/config/v1/managementZones_                | `Read Configuration` & `Write Configuration`                                                                        |
 | notification                    | _/api/config/v1/notifications_                  | `Read Configuration` & `Write Configuration`                                                                        |
 | request-attributes              | _/api/config/v1/service/requestAttributes_      | `Read Configuration` & `Capture request data`                                                                       |
-| request-naming                  | _/api/config/v1/service/requestNaming_          | `Read Configuration` & `Write Configuration`                                                                        |
+| request-naming-service          | _/api/config/v1/service/requestNaming_          | `Read Configuration` & `Write Configuration`                                                                        |
+| slo                             | _/api/v2/slo_                                   | `Read SLO` & `Write SLOs`                                                                                           |
 | synthetic-location              | _/api/v1/synthetic/locations_                   | `Access problem and event feed, metrics, and topology` & `Create and read synthetic monitors, locations, and nodes` |
 | synthetic-monitor               | _/api/v1/synthetic/monitors_                    | `Create and read synthetic monitors, locations, and nodes`                                                          |
 
 For reference, refer to [this](https://www.dynatrace.com/support/help/dynatrace-api/basics/dynatrace-api-authentication) page for a detailed
 description to each token permission.
+
+If your desired API is not in the table above, please consider adding it be following the instructions in 
+[How to add new APIs](https://github.com/dynatrace-oss/dynatrace-monitoring-as-code/blob/main/docs/how-to-add-a-new-api.md).
 
 ### Configuration YAML Structure
 

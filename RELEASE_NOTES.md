@@ -1,9 +1,74 @@
 # Monitoring as Code Tool - Release Notes
 
-- [Monitoring as Code - Release Notes](#monitoring-as-code---release-notes)
+- Versions:
+  - [1.4.0](#140)
+  - [1.3.1](#131)
+  - [1.3.0](#130)
+  - [1.2.0](#120)
   - [1.1.0](#110)
   - [1.0.1](#101)
   - [1.0.0](#100)
+
+## 1.4.0
+
+#### Features
+
+* f5a4f71 Add support for credentials vault API (#175)
+* af5c4f5 Fix #158: Add support for custom-service APIs for dotnet, go, nodejs, and php (#172)
+
+## 1.3.1
+
+### List of changes
+#### Bugfixes
+
+* 2e0e88a: Cope with faulty configs (name or id is null) (#169)
+
+## 1.3.0
+
+### List of changes
+
+#### Deprecation Warnings
+* Fix #146: `application-web` configuration type replaces `application` in the future (#149)
+* `application` config type is deprecated with 1.3.0 and will be removed with 2.0.0 (#149)
+
+#### Features
+
+* Fix #146: Add support for `application-mobile`(applications/mobile) configurations (#149)
+* 5558b61 Fix #66: Add support for `slo` (/api/v2/slo) configruations (#153)
+
+#### Bugfixes
+
+* f52d297 Fix #138: Fix issue when providing context path without slash (#139)
+* 60cf6b1 Fix #155: Fix delete command not working (#157)
+* 4ad81a9 Fix #102: Trim URL Trailing Slashes from environment URLs (#142)
+* 2f774bc: Show error when more than one argument is provided (#139)
+* 7002149: Fix pretty print of json error (#150)
+* 4086d87: Fix verbose flag not working in new cli (#159)
+* d911e21: Fix typos in CLI usage info messages (#159)
+
+#### Misc changes
+
+* 27a154c: Add possibility to log requests sent to Dynatrace (#151)
+  * To aid debugging it is now possible to have monaco log what exactly it sends to Dynatrace (fully filled out config JSONs)
+* 3772697: Replace json unmarshall type with map - improves internal handling of responses from Dynatrace (#150)
+
+## 1.2.0
+
+### List of changes
+
+#### Features
+
+* 4c53146 and 8611bd5 #19: Download current environment configuration (#122) 
+* dfbad92 and f54c278 Fix #45: Introduce new experimental cli design (#100)
+
+#### Bugfixes
+
+* fe30566 Fix #136: Handle failing to find project-root-folder path (#137)
+* 211dcbe and b74b06b Fix missing verbose flag in legacy cli (#129)
+
+#### Misc changes
+
+* c70ca7b Fix #82: Define some install steps/requirements (#109)
 
 ## 1.1.0
 

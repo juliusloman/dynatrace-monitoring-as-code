@@ -25,6 +25,7 @@ import (
 
 	"github.com/dynatrace-oss/dynatrace-monitoring-as-code/pkg/util"
 	"github.com/dynatrace-oss/dynatrace-monitoring-as-code/pkg/version"
+	"github.com/google/uuid"
 )
 
 type Response struct {
@@ -73,6 +74,15 @@ func requestWithBody(method string, url string, body io.Reader, apiToken string)
 }
 
 func executeRequest(client *http.Client, request *http.Request) Response {
+	var requestId string
+	if util.IsRequestLoggingActive() {
+		requestId = uuid.NewString()
+		err := util.LogRequest(requestId, request)
+
+		if err != nil {
+			util.Log.Warn("error while writing request log for id `%s`: %v", requestId, err)
+		}
+	}
 
 	rateLimitStrategy := createRateLimitStrategy()
 
@@ -86,6 +96,19 @@ func executeRequest(client *http.Client, request *http.Request) Response {
 			err = resp.Body.Close()
 		}()
 		body, err := ioutil.ReadAll(resp.Body)
+
+		if util.IsResponseLoggingActive() {
+			err := util.LogResponse(requestId, resp)
+
+			if err != nil {
+				if requestId != "" {
+					util.Log.Warn("error while writing response log for id `%s`: %v", requestId, err)
+				} else {
+					util.Log.Warn("error while writing response log: %v", requestId, err)
+				}
+			}
+		}
+
 		return Response{
 			StatusCode: resp.StatusCode,
 			Body:       body,
